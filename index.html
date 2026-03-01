@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Mesaj — Yaz, Tarat, Oku</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Syne+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #222;
+    --accent: #e8ff47;
+    --accent2: #ff6b35;
+    --text: #f0f0f0;
+    --muted: #666;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 60px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    margin-bottom: 60px;
+    text-align: center;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .logo-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .logo-icon span {
+    background: var(--bg);
+    border-radius: 2px;
+  }
+
+  .logo-icon span:nth-child(5) { background: var(--accent); }
+
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin-top: 12px;
+    font-size: 1rem;
+    font-family: 'Syne Mono', monospace;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20px; right: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-family: 'Syne Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    padding: 16px;
+    resize: vertical;
+    min-height: 140px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232, 255, 71, 0.08);
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  .char-count {
+    text-align: right;
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+    transition: color 0.2s;
+  }
+
+  .char-count.warn { color: var(--accent2); }
+
+  .btn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(232, 255, 71, 0.25);
+  }
+
+  .btn:active { transform: translateY(0); }
+
+  .btn.loading { opacity: 0.7; pointer-events: none; }
+
+  /* Result section */
+  .result {
+    margin-top: 40px;
+    display: none;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .result.show { display: block; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-inner {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .qr-wrap {
+    flex-shrink: 0;
+    background: #fff;
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #qrcode canvas, #qrcode img {
+    display: block;
+    border-radius: 4px;
+  }
+
+  .result-info {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .result-info h3 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: var(--accent);
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .result-text-preview {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    word-break: break-word;
+    max-height: 80px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .url-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    word-break: break-all;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .url-box:hover { border-color: var(--accent); color: var(--accent); }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn-sm {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid;
+  }
+
+  .btn-sm.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  .btn-sm.secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .btn-sm:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  .new-btn {
+    margin-top: 20px;
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .new-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: var(--bg);
+    padding: 12px 24px;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 100;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    color: var(--muted);
+    font-family: 'Syne Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+  }
+
+  .error-msg {
+    color: var(--accent2);
+    font-size: 0.85rem;
+    margin-top: 8px;
+    font-family: 'Syne Mono', monospace;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+    <h1>QR <em>Mesaj</em></h1>
+    <p class="subtitle">// yaz → qr al → tarat → oku</p>
+  </header>
+
+  <div class="card">
+    <label>Mesajını Yaz</label>
+    <textarea id="textInput" placeholder="Buraya istediğin mesajı yaz... (not, şiir, bağlantı, sır 🤫)" maxlength="1000"></textarea>
+    <div class="char-count"><span id="count">0</span> / 1000</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn" id="generateBtn" onclick="generate()">
+      ⬛ QR Kod Oluştur
+    </button>
+
+    <div class="result" id="result">
+      <div class="result-inner">
+        <div class="qr-wrap">
+          <div id="qrcode"></div>
+        </div>
+        <div class="result-info">
+          <h3>✓ QR Hazır</h3>
+          <div class="result-text-preview" id="textPreview"></div>
+          <div class="url-box" id="urlBox" onclick="copyUrl()" title="Kopyalamak için tıkla"></div>
+          <div class="actions">
+            <button class="btn-sm primary" onclick="downloadQR()">↓ PNG İndir</button>
+            <button class="btn-sm secondary" onclick="copyUrl()">🔗 Linki Kopyala</button>
+          </div>
+        </div>
+      </div>
+      <button class="new-btn" onclick="resetForm()">+ Yeni QR Oluştur</button>
+    </div>
+  </div>
+
+  <footer>qr mesaj © 2025 — flask + qrcode.js</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const textInput = document.getElementById('textInput');
+const countEl = document.getElementById('count');
+const charCount = document.querySelector('.char-count');
+let currentQR = null;
+let currentUrl = '';
+
+textInput.addEventListener('input', () => {
+  const len = textInput.value.length;
+  countEl.textContent = len;
+  charCount.classList.toggle('warn', len > 800);
+});
+
+async function generate() {
+  const text = textInput.value.trim();
+  if (!text) { showError('Önce bir şeyler yaz!'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Oluşturuluyor...';
+  hideError();
+
+  try {
+    const res = await fetch('/api/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text})
+    });
+    const data = await res.json();
+    if (!res.ok) { showError(data.error); return; }
+
+    currentUrl = data.url;
+    showResult(text, data.url);
+  } catch(e) {
+    showError('Bağlantı hatası!');
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '⬛ QR Kod Oluştur';
+  }
+}
+
+function showResult(text, url) {
+  // Clear old QR
+  const qrDiv = document.getElementById('qrcode');
+  qrDiv.innerHTML = '';
+
+  new QRCode(qrDiv, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  document.getElementById('textPreview').textContent =
+    text.length > 100 ? text.slice(0, 100) + '…' : text;
+  document.getElementById('urlBox').textContent = url;
+
+  const result = document.getElementById('result');
+  result.classList.add('show');
+  result.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) {
+    // Try img
+    const img = document.querySelector('#qrcode img');
+    if (img) {
+      const a = document.createElement('a');
+      a.href = img.src;
+      a.download = 'qr-mesaj.png';
+      a.click();
+    }
+    return;
+  }
+
+  // Add white border
+  const out = document.createElement('canvas');
+  const pad = 24;
+  out.width = canvas.width + pad * 2;
+  out.height = canvas.height + pad * 2;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, pad, pad);
+
+  const a = document.createElement('a');
+  a.download = 'qr-mesaj.png';
+  a.href = out.toDataURL('image/png');
+  a.click();
+  showToast('QR indirildi!');
+}
+
+function copyUrl() {
+  navigator.clipboard.writeText(currentUrl).then(() => {
+    showToast('Link kopyalandı!');
+  });
+}
+
+function resetForm() {
+  textInput.value = '';
+  countEl.textContent = '0';
+  charCount.classList.remove('warn');
+  document.getElementById('result').classList.remove('show');
+  textInput.focus();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showError(msg) {
+  const e = document.getElementById('errorMsg');
+  e.textContent = '⚠ ' + msg;
+  e.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+// Enter key shortcut (Ctrl+Enter)
+textInput.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>
